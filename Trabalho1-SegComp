@@ -1,0 +1,286 @@
+msg = "11010111"
+k = 1010000010 
+p10 = [10, 7, 5, 9, 4, 1, 3, 6, 2, 8]
+p8 = [5, 8, 4, 2, 7, 1, 3, 6]
+
+ip = [2, 6, 3, 1, 4, 8, 5, 7]
+ip1 = [4, 1, 3, 5, 7, 2, 8, 6]
+
+ep = [4, 1, 2, 3, 2, 3, 4, 1]
+
+#PERMUTAÇÕES
+
+#Essa é a primeira permutação realizada utilizando a lista p10 para ordenar seus valores
+def permutP10(num, listaPos):
+
+    listaBinaria = [int(digito) for digito in str(num)]
+
+    if len(listaBinaria) != len(listaPos):
+        raise ValueError("numero e lista tem que ser do mesmo tamanho")
+
+    listaPer = [0] * len(listaBinaria)
+
+    for i, posicao in enumerate(listaPos):
+        listaPer[posicao - 1] = listaBinaria[i]
+
+    return listaPer
+
+
+#este é o deslocamento circular, não sei como era para ter feito exatamente mas do jeito que esta ele pega a chave, divide em 2, realiza um deslocamento circular e inverte as duas metades.
+def deslocCircularM(chave):
+    
+    metade = len(chave)// 2
+    lis1 = chave[:metade]
+    lis2 = chave[metade:]
+    
+    lis1 = lis1[2:] + lis1[:2]
+    lis2 = lis2[2:] + lis2[:2]
+    
+    return lis2 + lis1
+    
+#essa é a seleção dos 8 bits que vão compor a chave(os 8 primeiros) e depois realiza mais uma permutação utilizando a lista p8
+def permutP8(num, listaPos8):
+    seleção = []
+    for i in range(8):
+        seleção.append(num[i])
+    
+
+    if len(seleção) != len(listaPos8):
+        raise ValueError("numero e lista tem que ser do mesmo tamanho")
+
+    listaPer8 = [0] * len(seleção)
+    
+    for i, posicao in enumerate(listaPos8):
+        
+        listaPer8[posicao - 1] = str(seleção[i])
+    
+    listaPer8 = "".join(listaPer8)
+    
+    return listaPer8
+
+#uma função para juntar todas as funções para construir as subchaves
+def construir_chave(k):
+    kp = permutP10(k, p10)
+
+    kd = deslocCircularM(kp)
+
+    k1 = permutP8(kd, p8)
+
+    k2 = permutP8(deslocCircularM(kd), p8)
+    
+    return k1, k2
+
+k1, k2 = construir_chave(k)
+##########################################################################################
+##########################################################################################
+
+#Agora com as chaves K1 e K2 feitas podemos começar a mecher na mensagem a ser cifrada
+#Permutação inicial, e final
+#msgPI = permutP8(msg, ip)
+
+#Divisão em metades
+
+def divHalf(msg):
+    return msg[:4], msg[4:]
+    
+
+
+#Agora começamos a fazer a função F de "fK(L, R) = (L ! F(R, SK), R)"
+#a função expp vai fazer a expansão da Right side da mensagem realizando ao mesmo tempo uma permutação.
+def expp(r, ep):
+    lep = []
+    for i in ep:
+        lep.append(r[i - 1])
+    #print(lep)
+    
+    return lep
+
+
+
+#Agora o XOR da expansão da mensagem direita com a chave 1
+
+def xor(rexp, k):
+    lexpChave = []
+    for i in range(len(k)):
+        if rexp[i] == "0" and k[i] == '0':
+            lexpChave.append('0')
+        elif rexp[i] == "1" and k[i] == '0':
+            lexpChave.append('1')
+        elif rexp[i] == '0' and k[i] == '1':
+            lexpChave.append('1')
+        elif rexp[i] == '1' and k[i] == '1':
+            lexpChave.append('0')
+    return lexpChave
+
+
+
+#Agora com o xor feito podemos fazer as duas matrizes das S-boxes, e com elas as suas operações
+
+def sboxesdentro(umt4):
+    
+    if umt4[:1] + umt4[3:] == ["0","0"]:
+        row = 0
+    elif umt4[:1] + umt4[3:] == ["0","1"]:
+        row = 1
+    elif umt4[:1] + umt4[3:] == ["1","0"]:
+        row = 2
+    elif umt4[:1] + umt4[3:] == ["1","1"]:
+        row = 3
+    
+    if umt4[1:2] + umt4[2:3] == ["0","0"]:
+        colum = 0
+    elif umt4[1:2] + umt4[2:3] == ["0","1"]:
+        colum = 1
+    elif umt4[1:2] + umt4[2:3] == ["1","0"]:
+        colum = 2
+    elif umt4[1:2] + umt4[2:3] == ["1","1"]:
+        colum = 3
+    return row, colum
+   
+def sboxesCORD(row, colum, sb):
+    cord = sb[row][colum]
+    if cord == 0:
+        return "00"
+    elif cord == 1:
+        return "01"
+    elif cord == 2:
+        return "10"
+    elif cord == 3:
+        return "11"
+
+def sboxes(umt):
+    p4 = [2,4,3,1]
+    sb1 = [[1, 0, 3, 2], [3, 2, 1, 0], [0, 2, 1, 3], [3, 1, 3, 2]]
+    sb2 = [[0, 1, 2, 3], [2, 0, 1, 3], [3, 0, 1, 0], [2, 1, 0, 3]]
+    umtR = umt[:4]
+    umtL = umt[4:]
+    final = []
+    row1, colum1 = sboxesdentro(umtR)
+    row2, colum2 = sboxesdentro(umtL)
+    b41 = sboxesCORD(row1, colum1, sb1)
+    b42 = sboxesCORD(row2, colum2, sb2)
+    b4 = b41 + b42
+    for i in p4:
+        final.append(b4[i-1])
+        
+    return final
+    
+
+
+#finalmente temos a sbox realizada, agora realizamos o xor e a concatenação de p4 com o leftside. E assim, concatenando e trocando de lados, teremos a primeira parte, a primeira iteração de feistel, porém ainda precisamos realizar mais uma para ter nosso texto cifrado
+
+
+
+
+def juntatudo(msg):
+    #Permutação inicial
+    msgPI = permutP8(msg, ip)
+    
+    #divisão em 4 bits
+    l, r = divHalf(msgPI)
+    
+    #expanção e permutação
+    rexp = expp(r, ep)
+    
+    #xor da subchave com a msg expandida
+    umt = xor(rexp, k1)
+    
+    #tudo relacionado a sboxes esta na função sboxes(umt), então é feito mais um xor com o left side e temos nisso resultado do primeiro round depois de trocar a ordem das duas sides.
+    rcifrado = xor(l,sboxes(umt))
+    
+    rcifrado ="".join(rcifrado)
+    
+    nextRound =  str(r) + rcifrado
+    
+    #segunda rodada de feistel
+    
+    l2, r2 = divHalf(nextRound)
+    rexp2 = expp(r2, ep)
+    
+    
+    umt2 = xor(rexp2, k2)
+    
+    rcifrado2 = xor(l2,sboxes(umt2))
+    rcifrado2 ="".join(rcifrado2)
+    
+    nextRound2 = rcifrado2 + str(r2)   
+    
+    #permutação final
+    nextRound2 = permutP8(nextRound2, ip1)
+    
+    return nextRound2
+
+#Mensagem corretamente encriptada
+cript = juntatudo(msg)
+
+
+#Agora vamos ao processo reverso, Decifrando a criptografia
+
+#Nossa mensagem agora é cript, e ainda usaremaos as chaves k1 e k2
+
+def decypher(cript, k1, k2):
+    
+    #permutação incial
+    msgPI = permutP8(cript, ip)
+    #divisão em duas metades
+    l, r = divHalf(msgPI)
+    #expansão e permutação
+    rexp = expp(r, ep)
+    #xor com a k2
+    umt = xor(rexp, k2)
+    #sboxes e xor com o leftside
+    rdecifrado1 = xor(l,sboxes(umt))
+    #segunda iteração de feistel para descriptografar
+    
+    rexp = expp(rdecifrado1, ep)
+   
+    umt = xor(rexp, k1)
+    
+    rdecifrado2 = xor(r,sboxes(umt))
+    
+    quasela = rdecifrado2 + rdecifrado1
+    
+    msgPI = permutP8(quasela, ip1)
+    
+    return msgPI
+    
+#nossa mensagem decifrada
+a = decypher(cript, k1, k2)
+
+
+
+print("Essa é a mensagem inicial",msg)
+print("Essa é a mensagem cifrada",cript)
+print("Essa é a mensagem decifrada",a)
+print("")
+print("Tente usar colocando um input, lembre-se a chave tem 10 bits e a mensagem 8 bits:")
+print("")
+print("Voce quer cifrar e decifrar, ou apenas decifrar.")
+response = int(input("digite 1 para cifrar e decifrar, 2 para apenas decifrar:"))
+
+if response == 1:
+    msginput = input("Digite a nova mensagem:")
+    kinput = int(input("Digite a nova chave:"))
+    k1, k2 = construir_chave(kinput)
+    cript = juntatudo(msginput)
+    a = decypher(cript, k1, k2)
+    
+    print("Essa é sua nova mensagem cifrada.", cript)
+    print("E aqui está ela decifrada", a)
+elif response == 2:
+    
+    msginput = input("Digite sua cifra:")
+    kinput = int(input("Digite sua chave"))
+
+    k1, k2 = construir_chave(kinput)
+    a = decypher(cript, k1, k2)
+    
+    print("E aqui está ela decifrada", a)
+
+
+
+
+
+
+
+
